@@ -3,7 +3,6 @@
  * Versión inicial vacía: el stepper de 5 pasos (select-event, your-details,
  * select-seat, payment, confirmation) se implementa en su ticket correspondiente.
  */
-// TODO UNIT TEST
 export const PurchasePage = () => (
   <section>
     <h1>Buy Tickets</h1>

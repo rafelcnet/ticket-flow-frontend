@@ -15,7 +15,6 @@ import { ROUTES } from './routes.config'
  * (8.2, 8.5). El módulo de Token Storage pertenece a la capa `http/` y aún no
  * existe, por lo que aquí no se anticipa su interfaz.
  */
-// TODO UNIT TEST
 export const AppRouter = () => (
   <BrowserRouter>
     <Routes>
