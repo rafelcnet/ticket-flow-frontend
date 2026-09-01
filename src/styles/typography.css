@@ -1,0 +1,28 @@
+/**
+ * Tipografía base — Inter (headings/body) y JetBrains Mono (IDs) de Context.md 2.2.
+ * Las familias se cargan desde Google Fonts en `index.html`.
+ */
+body {
+  font-family: var(--font-sans);
+  font-weight: var(--font-weight-body);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-snow-1);
+  background-color: var(--color-bg-dark);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: var(--font-weight-heading);
+  color: var(--color-snow-2);
+  line-height: 1.25;
+}
+
+code,
+.mono {
+  font-family: var(--font-mono);
+}
