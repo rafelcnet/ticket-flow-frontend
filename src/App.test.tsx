@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import App from './App'
+import { notifyGlobalError } from './http/error-bus'
 import { ROUTES } from './routes/routes.config'
 
 describe('App', () => {
@@ -27,5 +28,19 @@ describe('App', () => {
     // Then: no queda rastro del contador ni de los enlaces de la plantilla
     expect(screen.queryByRole('button', { name: /count is/i })).not.toBeInTheDocument()
     expect(screen.queryByText(/Get started/i)).not.toBeInTheDocument()
+  })
+
+  it('muestra los toasts globales de red desde cualquier pantalla (SpecHttp 4.2)', async () => {
+    // Given: la aplicación está montada en cualquier ruta
+    window.history.pushState({}, '', ROUTES.home)
+    render(<App />)
+
+    // When: el interceptor de response notifica un error 500
+    notifyGlobalError('Ocurrió un error inesperado. Intenta nuevamente.')
+
+    // Then: el ToastViewport, montado junto al router, muestra el mensaje
+    expect(
+      await screen.findByText('Ocurrió un error inesperado. Intenta nuevamente.'),
+    ).toBeInTheDocument()
   })
 })

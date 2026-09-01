@@ -1,0 +1,1352 @@
+{
+  "info": {
+    "_postman_id": "c7f1a2b3-d4e5-6789-abcd-0123456789ef",
+    "name": "TicketFlow API",
+    "description": "Production Postman collection for the TicketFlow mock backend (Express 5 + better-sqlite3). Every endpoint is covered with complete request/response examples and automated schema tests.\n\n**Run POST /auth/login first** — the test script stores the token in the `token` collection variable automatically.\n\n## Seed users\n| Email | Password |\n|---|---|\n| sofia.hernandez@ticketflow.com | ticket123 |\n| mateo.garcia@ticketflow.com | ticket123 |\n| valeria.lopez@ticketflow.com | ticket123 |\n| diego.martinez@ticketflow.com | ticket123 |\n\n## Typical flow\n1. POST /auth/login → token stored\n2. POST /payment/process → transactionId stored\n3. POST /bookings → bookingId stored\n4. GET /bookings → list user bookings\n5. PATCH /bookings/:id/cancel → cancel a booking\n6. POST /auth/logout → invalidate token\n\n## Auth\nAll endpoints except `GET /health` and `POST /auth/login` require `Authorization: Bearer {{token}}`.\n\n## Error shape (all errors)\n`{ \"error\": \"ERROR_CODE\", \"message\": \"Human readable description\" }`\n\n## Critical field distinctions\n- `seat.zone` in `GET /events/:id/seats` is a **zone ID** string (e.g. `zon-001`) that references `zones[].id`\n- `booking.zone` in `POST /bookings` and `GET /bookings` is the **zone name** string (e.g. `VIP`)\n- `cancelledAt` in `PATCH /bookings/:id/cancel` response is ISO 8601 from Node.js `new Date().toISOString()` (e.g. `2026-07-04T16:00:00.000Z`)\n- `cancelledAt` in `GET /bookings` response is SQLite `datetime('now')` format (e.g. `2026-07-04 16:00:00`) or `null`\n\n## Database\n- In-memory SQLite — resets to seed state on every server restart\n- 20 events across 3 venues, 188 seats, 4 users, 8 seed bookings",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string",
+      "description": "Base URL of the TicketFlow API"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "Bearer token — populated automatically by POST /auth/login test script"
+    },
+    {
+      "key": "bookingId",
+      "value": "TF-001",
+      "type": "string",
+      "description": "Booking ID — populated automatically by POST /bookings test script"
+    },
+    {
+      "key": "transactionId",
+      "value": "txn-483920",
+      "type": "string",
+      "description": "Payment transaction ID — populated automatically by POST /payment/process test script"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "description": "Public health check — no authentication required.",
+      "item": [
+        {
+          "name": "GET /health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Body has status ok\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"status\");",
+                  "    pm.expect(body.status).to.equal(\"ok\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Public liveness probe. Returns 200 when the server is running. No authentication required."
+          },
+          "response": [
+            {
+              "name": "200 OK — Server healthy",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/health",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["health"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"status\":\"ok\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Login and logout. Login is public. Logout requires a valid Bearer token.",
+      "item": [
+        {
+          "name": "POST /auth/login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response has token with correct format\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"token\");",
+                  "    pm.expect(body.token).to.be.a(\"string\");",
+                  "    pm.expect(body.token).to.match(/^tok_/);",
+                  "    pm.collectionVariables.set(\"token\", body.token);",
+                  "});",
+                  "pm.test(\"Response has user with all required fields\", function () {",
+                  "    const { user } = pm.response.json();",
+                  "    pm.expect(user).to.have.all.keys(\"id\", \"name\", \"lastname\", \"email\", \"phone\");",
+                  "    pm.expect(user.id).to.be.a(\"string\");",
+                  "    pm.expect(user.name).to.be.a(\"string\");",
+                  "    pm.expect(user.lastname).to.be.a(\"string\");",
+                  "    pm.expect(user.email).to.be.a(\"string\");",
+                  "    pm.expect(user.phone).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"sofia.hernandez@ticketflow.com\",\n  \"password\": \"ticket123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Authenticate with email and password. Returns an opaque Bearer token and the user object. The test script stores the token in `{{token}}` automatically.\n\n**Required body fields:** `email` (string), `password` (string)"
+          },
+          "response": [
+            {
+              "name": "200 OK — Login successful",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"sofia.hernandez@ticketflow.com\",\n  \"password\": \"ticket123\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "login"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"token\":\"tok_550e8400-e29b-41d4-a716-446655440000\",\"user\":{\"id\":\"usr-001\",\"name\":\"Sofía\",\"lastname\":\"Hernández\",\"email\":\"sofia.hernandez@ticketflow.com\",\"phone\":\"+525511223344\"}}"
+            },
+            {
+              "name": "400 Bad Request — Missing fields",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"sofia.hernandez@ticketflow.com\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "login"]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"VALIDATION_ERROR\",\"message\":\"email and password are required\"}"
+            },
+            {
+              "name": "401 Unauthorized — Invalid credentials",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"sofia.hernandez@ticketflow.com\",\n  \"password\": \"wrongpassword\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "login"]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"INVALID_CREDENTIALS\",\"message\":\"Invalid email or password\"}"
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response has success message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"message\");",
+                  "    pm.expect(body.message).to.equal(\"Logged out successfully\");",
+                  "});",
+                  "pm.test(\"Clear token variable after logout\", function () {",
+                  "    pm.collectionVariables.set(\"token\", \"\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Invalidates the current Bearer token. After this call, any request using the same token will receive 401. The test script clears `{{token}}` automatically.\n\n**Protected:** Requires `Authorization: Bearer {{token}}`"
+          },
+          "response": [
+            {
+              "name": "200 OK — Logged out",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/logout",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "logout"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"message\":\"Logged out successfully\"}"
+            },
+            {
+              "name": "401 Unauthorized — Missing or invalid token",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/logout",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "logout"]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"UNAUTHORIZED\",\"message\":\"Invalid or missing token\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "User profile endpoints. All protected.",
+      "item": [
+        {
+          "name": "GET /users/me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"User has all required fields with correct types\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys(\"id\", \"name\", \"lastname\", \"email\", \"phone\");",
+                  "    pm.expect(body.id).to.be.a(\"string\");",
+                  "    pm.expect(body.name).to.be.a(\"string\");",
+                  "    pm.expect(body.lastname).to.be.a(\"string\");",
+                  "    pm.expect(body.email).to.be.a(\"string\");",
+                  "    pm.expect(body.phone).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            },
+            "description": "Returns the profile of the authenticated user. Identity is derived from the Bearer token — no user ID parameter is needed.\n\n**Protected:** Requires `Authorization: Bearer {{token}}`"
+          },
+          "response": [
+            {
+              "name": "200 OK — User profile",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/users/me",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["users", "me"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"id\":\"usr-001\",\"name\":\"Sofía\",\"lastname\":\"Hernández\",\"email\":\"sofia.hernandez@ticketflow.com\",\"phone\":\"+525511223344\"}"
+            },
+            {
+              "name": "401 Unauthorized — Missing or invalid token",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users/me",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["users", "me"]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"UNAUTHORIZED\",\"message\":\"Invalid or missing token\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "description": "Event listing and seat map. All protected.",
+      "item": [
+        {
+          "name": "GET /events",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response has non-empty data array\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"data\");",
+                  "    pm.expect(body.data).to.be.an(\"array\");",
+                  "    pm.expect(body.data.length).to.be.greaterThan(0);",
+                  "});",
+                  "pm.test(\"Each event has all required fields with correct types\", function () {",
+                  "    pm.response.json().data.forEach(function (event) {",
+                  "        pm.expect(event).to.have.all.keys(\"id\", \"venueId\", \"name\", \"date\", \"time\", \"location\", \"imageUrl\", \"basePrice\", \"currency\");",
+                  "        pm.expect(event.id).to.be.a(\"string\");",
+                  "        pm.expect(event.venueId).to.be.a(\"string\");",
+                  "        pm.expect(event.name).to.be.a(\"string\");",
+                  "        pm.expect(event.date).to.match(/^\\d{4}-\\d{2}-\\d{2}$/);",
+                  "        pm.expect(event.time).to.be.a(\"string\");",
+                  "        pm.expect(event.location).to.be.a(\"string\");",
+                  "        pm.expect(event.imageUrl).to.be.a(\"string\");",
+                  "        pm.expect(event.basePrice).to.be.a(\"number\");",
+                  "        pm.expect(event.currency).to.equal(\"USD\");",
+                  "    });",
+                  "});",
+                  "pm.test(\"Events are ordered by date ASC\", function () {",
+                  "    const dates = pm.response.json().data.map(function (e) { return e.date; });",
+                  "    for (let i = 1; i < dates.length; i++) {",
+                  "        pm.expect(dates[i] >= dates[i - 1]).to.be.true;",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["events"]
+            },
+            "description": "Returns all events ordered by date ASC. No pagination — always returns the full list.\n\n**Seed data:** 20 events across 3 venues (ven-001 Nova Arena / ven-002 Luna Center / ven-003 Teatro Aurora)\n\n**Protected:** Requires `Authorization: Bearer {{token}}`"
+          },
+          "response": [
+            {
+              "name": "200 OK — All 20 events",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/events",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["events"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"data\":[{\"id\":\"evt-001\",\"venueId\":\"ven-001\",\"name\":\"Bad Liebre\",\"date\":\"2025-02-15\",\"time\":\"21:00\",\"location\":\"Ciudad de México, México\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/bad-liebre.png\",\"basePrice\":150,\"currency\":\"USD\"},{\"id\":\"evt-002\",\"venueId\":\"ven-001\",\"name\":\"Karolina G\",\"date\":\"2025-03-08\",\"time\":\"20:30\",\"location\":\"Ciudad de México, México\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/karolina-g.png\",\"basePrice\":125,\"currency\":\"USD\"},{\"id\":\"evt-003\",\"venueId\":\"ven-001\",\"name\":\"Lentejuela\",\"date\":\"2025-04-19\",\"time\":\"21:30\",\"location\":\"Ciudad de México, México\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/lentejuela.png\",\"basePrice\":140,\"currency\":\"USD\"},{\"id\":\"evt-004\",\"venueId\":\"ven-001\",\"name\":\"Rosa y Lía\",\"date\":\"2025-05-24\",\"time\":\"20:00\",\"location\":\"Ciudad de México, México\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/rosa-y-lia.png\",\"basePrice\":135,\"currency\":\"USD\"},{\"id\":\"evt-005\",\"venueId\":\"ven-001\",\"name\":\"Shut N' Roses\",\"date\":\"2025-06-14\",\"time\":\"21:00\",\"location\":\"Ciudad de México, México\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/shut-n-roses.png\",\"basePrice\":120,\"currency\":\"USD\"},{\"id\":\"evt-006\",\"venueId\":\"ven-001\",\"name\":\"Draft Funk\",\"date\":\"2025-07-26\",\"time\":\"20:30\",\"location\":\"Ciudad de México, México\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/draft-funk.png\",\"basePrice\":115,\"currency\":\"USD\"},{\"id\":\"evt-007\",\"venueId\":\"ven-001\",\"name\":\"Peso Mosca\",\"date\":\"2025-09-06\",\"time\":\"21:15\",\"location\":\"Ciudad de México, México\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/peso-mosca.png\",\"basePrice\":100,\"currency\":\"USD\"},{\"id\":\"evt-008\",\"venueId\":\"ven-002\",\"name\":\"Doble Lipa\",\"date\":\"2025-10-18\",\"time\":\"20:00\",\"location\":\"Madrid, España\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/doble-lipa.png\",\"basePrice\":145,\"currency\":\"USD\"},{\"id\":\"evt-009\",\"venueId\":\"ven-002\",\"name\":\"Taylor Flux\",\"date\":\"2025-11-29\",\"time\":\"21:00\",\"location\":\"Madrid, España\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/taylor-flux.png\",\"basePrice\":130,\"currency\":\"USD\"},{\"id\":\"evt-010\",\"venueId\":\"ven-002\",\"name\":\"The Bugs\",\"date\":\"2026-01-17\",\"time\":\"20:30\",\"location\":\"Madrid, España\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/the-bugs.png\",\"basePrice\":95,\"currency\":\"USD\"},{\"id\":\"evt-011\",\"venueId\":\"ven-002\",\"name\":\"Coldpause\",\"date\":\"2026-02-21\",\"time\":\"21:00\",\"location\":\"Madrid, España\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/coldpause.png\",\"basePrice\":90,\"currency\":\"USD\"},{\"id\":\"evt-012\",\"venueId\":\"ven-002\",\"name\":\"Queens of León\",\"date\":\"2026-03-14\",\"time\":\"20:00\",\"location\":\"Madrid, España\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/queens-of-leon.png\",\"basePrice\":85,\"currency\":\"USD\"},{\"id\":\"evt-013\",\"venueId\":\"ven-002\",\"name\":\"Princess\",\"date\":\"2026-04-25\",\"time\":\"21:30\",\"location\":\"Madrid, España\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/princess.png\",\"basePrice\":110,\"currency\":\"USD\"},{\"id\":\"evt-014\",\"venueId\":\"ven-002\",\"name\":\"The Weekly\",\"date\":\"2026-05-16\",\"time\":\"20:30\",\"location\":\"Madrid, España\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/the-weekly.png\",\"basePrice\":105,\"currency\":\"USD\"},{\"id\":\"evt-015\",\"venueId\":\"ven-003\",\"name\":\"Desert Monkeys\",\"date\":\"2026-06-20\",\"time\":\"21:00\",\"location\":\"Ciudad de México, México\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/desert-monkeys.png\",\"basePrice\":100,\"currency\":\"USD\"},{\"id\":\"evt-016\",\"venueId\":\"ven-003\",\"name\":\"Gentleman Gaga\",\"date\":\"2026-07-11\",\"time\":\"20:00\",\"location\":\"Ciudad de México, México\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/gentleman-gaga.png\",\"basePrice\":95,\"currency\":\"USD\"},{\"id\":\"evt-017\",\"venueId\":\"ven-003\",\"name\":\"Liquid Park\",\"date\":\"2026-08-22\",\"time\":\"21:15\",\"location\":\"Ciudad de México, México\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/liquid-park.png\",\"basePrice\":90,\"currency\":\"USD\"},{\"id\":\"evt-018\",\"venueId\":\"ven-003\",\"name\":\"Bruno Jupiter\",\"date\":\"2026-09-19\",\"time\":\"20:30\",\"location\":\"Ciudad de México, México\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/bruno-jupiter.png\",\"basePrice\":80,\"currency\":\"USD\"},{\"id\":\"evt-019\",\"venueId\":\"ven-003\",\"name\":\"Fuzz Fighters\",\"date\":\"2026-10-24\",\"time\":\"21:00\",\"location\":\"Ciudad de México, México\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/fuzz-fighters.png\",\"basePrice\":75,\"currency\":\"USD\"},{\"id\":\"evt-020\",\"venueId\":\"ven-003\",\"name\":\"Green Hot Chili Peppers\",\"date\":\"2026-11-14\",\"time\":\"20:00\",\"location\":\"Ciudad de México, México\",\"imageUrl\":\"https://raw.githubusercontent.com/alejandrocalderonhernandez/ticket-flow-resources/main/events/green-hot-chili-peppers.png\",\"basePrice\":70,\"currency\":\"USD\"}]}"
+            },
+            {
+              "name": "401 Unauthorized — Missing or invalid token",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/events",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["events"]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"UNAUTHORIZED\",\"message\":\"Invalid or missing token\"}"
+            }
+          ]
+        },
+        {
+          "name": "GET /events/:id/seats",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response has all required top-level fields\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys(\"eventId\", \"venueType\", \"zones\", \"seats\");",
+                  "    pm.expect(body.eventId).to.be.a(\"string\");",
+                  "    pm.expect([\"arena\", \"halfmoon\", \"flat\"]).to.include(body.venueType);",
+                  "    pm.expect(body.zones).to.be.an(\"array\").with.length.greaterThan(0);",
+                  "    pm.expect(body.seats).to.be.an(\"array\").with.length.greaterThan(0);",
+                  "});",
+                  "pm.test(\"Each zone has all required fields\", function () {",
+                  "    pm.response.json().zones.forEach(function (zone) {",
+                  "        pm.expect(zone).to.have.all.keys(\"id\", \"name\", \"color\", \"price\");",
+                  "        pm.expect(zone.id).to.be.a(\"string\");",
+                  "        pm.expect(zone.name).to.be.a(\"string\");",
+                  "        pm.expect(zone.color).to.match(/^#[0-9a-fA-F]{6}$/);",
+                  "        pm.expect(zone.price).to.be.a(\"number\");",
+                  "    });",
+                  "});",
+                  "pm.test(\"Zones are ordered by price DESC\", function () {",
+                  "    const prices = pm.response.json().zones.map(function (z) { return z.price; });",
+                  "    for (let i = 1; i < prices.length; i++) {",
+                  "        pm.expect(prices[i] <= prices[i - 1]).to.be.true;",
+                  "    }",
+                  "});",
+                  "pm.test(\"Each seat has all required fields — seat.zone is zone ID not zone name\", function () {",
+                  "    const body = pm.response.json();",
+                  "    const zoneIds = body.zones.map(function (z) { return z.id; });",
+                  "    body.seats.forEach(function (seat) {",
+                  "        pm.expect(seat).to.have.all.keys(\"seatId\", \"row\", \"col\", \"zone\", \"status\");",
+                  "        pm.expect(seat.seatId).to.be.a(\"string\");",
+                  "        pm.expect(seat.row).to.be.a(\"number\");",
+                  "        pm.expect(seat.col).to.be.a(\"number\");",
+                  "        pm.expect(zoneIds).to.include(seat.zone);",
+                  "        pm.expect([\"available\", \"occupied\"]).to.include(seat.status);",
+                  "    });",
+                  "});",
+                  "pm.test(\"Seats are ordered by row ASC then col ASC\", function () {",
+                  "    const seats = pm.response.json().seats;",
+                  "    for (let i = 1; i < seats.length; i++) {",
+                  "        const prev = seats[i - 1];",
+                  "        const curr = seats[i];",
+                  "        pm.expect(curr.row > prev.row || (curr.row === prev.row && curr.col >= prev.col)).to.be.true;",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/:id/seats",
+              "host": ["{{baseUrl}}"],
+              "path": ["events", ":id", "seats"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "evt-001",
+                  "description": "Event ID. Seats belong to the event's venue, shared across all events at the same venue."
+                }
+              ]
+            },
+            "description": "Returns the venue type, price zones, and full seat map for the given event.\n\n**IMPORTANT:** `seat.zone` is the **zone ID** (e.g. `zon-001`), not the zone name. To resolve zone details, cross-reference with the `zones` array using `zones[].id`.\n\n**Venue types:** `arena` | `halfmoon` | `flat`\n**Seat statuses:** `available` | `occupied`\n**Zone ordering:** zones sorted by price DESC\n**Seat ordering:** seats sorted by row ASC, col ASC\n\n**Protected:** Requires `Authorization: Bearer {{token}}`"
+          },
+          "response": [
+            {
+              "name": "200 OK — Seat map for evt-001 (ven-001, arena, 3 zones)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/events/evt-001/seats",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["events", "evt-001", "seats"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"eventId\":\"evt-001\",\"venueType\":\"arena\",\"zones\":[{\"id\":\"zon-001\",\"name\":\"VIP\",\"color\":\"#e94560\",\"price\":150},{\"id\":\"zon-002\",\"name\":\"Premium\",\"color\":\"#f0a500\",\"price\":110},{\"id\":\"zon-003\",\"name\":\"General\",\"color\":\"#4caf50\",\"price\":75}],\"seats\":[{\"seatId\":\"sea-001\",\"row\":1,\"col\":1,\"zone\":\"zon-001\",\"status\":\"occupied\"},{\"seatId\":\"sea-002\",\"row\":1,\"col\":2,\"zone\":\"zon-001\",\"status\":\"available\"},{\"seatId\":\"sea-003\",\"row\":1,\"col\":3,\"zone\":\"zon-001\",\"status\":\"occupied\"},{\"seatId\":\"sea-004\",\"row\":1,\"col\":4,\"zone\":\"zon-001\",\"status\":\"available\"},{\"seatId\":\"sea-005\",\"row\":1,\"col\":5,\"zone\":\"zon-001\",\"status\":\"available\"},{\"seatId\":\"sea-006\",\"row\":1,\"col\":6,\"zone\":\"zon-001\",\"status\":\"occupied\"},{\"seatId\":\"sea-007\",\"row\":1,\"col\":7,\"zone\":\"zon-001\",\"status\":\"available\"},{\"seatId\":\"sea-008\",\"row\":1,\"col\":8,\"zone\":\"zon-001\",\"status\":\"available\"},{\"seatId\":\"sea-009\",\"row\":1,\"col\":9,\"zone\":\"zon-001\",\"status\":\"occupied\"},{\"seatId\":\"sea-010\",\"row\":1,\"col\":10,\"zone\":\"zon-001\",\"status\":\"available\"},{\"seatId\":\"sea-011\",\"row\":1,\"col\":11,\"zone\":\"zon-001\",\"status\":\"available\"},{\"seatId\":\"sea-012\",\"row\":1,\"col\":12,\"zone\":\"zon-001\",\"status\":\"occupied\"},{\"seatId\":\"sea-013\",\"row\":2,\"col\":1,\"zone\":\"zon-002\",\"status\":\"available\"},{\"seatId\":\"sea-014\",\"row\":2,\"col\":2,\"zone\":\"zon-002\",\"status\":\"available\"},{\"seatId\":\"sea-015\",\"row\":2,\"col\":3,\"zone\":\"zon-002\",\"status\":\"occupied\"},{\"seatId\":\"sea-016\",\"row\":2,\"col\":4,\"zone\":\"zon-002\",\"status\":\"available\"},{\"seatId\":\"sea-017\",\"row\":2,\"col\":5,\"zone\":\"zon-002\",\"status\":\"available\"},{\"seatId\":\"sea-018\",\"row\":2,\"col\":6,\"zone\":\"zon-002\",\"status\":\"occupied\"},{\"seatId\":\"sea-019\",\"row\":2,\"col\":7,\"zone\":\"zon-002\",\"status\":\"available\"},{\"seatId\":\"sea-020\",\"row\":2,\"col\":8,\"zone\":\"zon-002\",\"status\":\"available\"},{\"seatId\":\"sea-021\",\"row\":2,\"col\":9,\"zone\":\"zon-002\",\"status\":\"occupied\"},{\"seatId\":\"sea-022\",\"row\":2,\"col\":10,\"zone\":\"zon-002\",\"status\":\"available\"},{\"seatId\":\"sea-023\",\"row\":2,\"col\":11,\"zone\":\"zon-002\",\"status\":\"available\"},{\"seatId\":\"sea-024\",\"row\":2,\"col\":12,\"zone\":\"zon-002\",\"status\":\"occupied\"},{\"seatId\":\"sea-025\",\"row\":3,\"col\":1,\"zone\":\"zon-003\",\"status\":\"available\"},{\"seatId\":\"sea-026\",\"row\":3,\"col\":2,\"zone\":\"zon-003\",\"status\":\"available\"},{\"seatId\":\"sea-027\",\"row\":3,\"col\":3,\"zone\":\"zon-003\",\"status\":\"occupied\"},{\"seatId\":\"sea-028\",\"row\":3,\"col\":4,\"zone\":\"zon-003\",\"status\":\"available\"},{\"seatId\":\"sea-029\",\"row\":3,\"col\":5,\"zone\":\"zon-003\",\"status\":\"available\"},{\"seatId\":\"sea-030\",\"row\":3,\"col\":6,\"zone\":\"zon-003\",\"status\":\"occupied\"},{\"seatId\":\"sea-031\",\"row\":3,\"col\":7,\"zone\":\"zon-003\",\"status\":\"available\"},{\"seatId\":\"sea-032\",\"row\":3,\"col\":8,\"zone\":\"zon-003\",\"status\":\"available\"},{\"seatId\":\"sea-033\",\"row\":3,\"col\":9,\"zone\":\"zon-003\",\"status\":\"occupied\"},{\"seatId\":\"sea-034\",\"row\":3,\"col\":10,\"zone\":\"zon-003\",\"status\":\"available\"},{\"seatId\":\"sea-035\",\"row\":3,\"col\":11,\"zone\":\"zon-003\",\"status\":\"available\"},{\"seatId\":\"sea-036\",\"row\":3,\"col\":12,\"zone\":\"zon-003\",\"status\":\"occupied\"},{\"seatId\":\"sea-037\",\"row\":4,\"col\":1,\"zone\":\"zon-003\",\"status\":\"available\"},{\"seatId\":\"sea-038\",\"row\":4,\"col\":2,\"zone\":\"zon-003\",\"status\":\"available\"},{\"seatId\":\"sea-039\",\"row\":4,\"col\":3,\"zone\":\"zon-003\",\"status\":\"occupied\"},{\"seatId\":\"sea-040\",\"row\":4,\"col\":4,\"zone\":\"zon-003\",\"status\":\"available\"},{\"seatId\":\"sea-041\",\"row\":4,\"col\":5,\"zone\":\"zon-003\",\"status\":\"available\"},{\"seatId\":\"sea-042\",\"row\":4,\"col\":6,\"zone\":\"zon-003\",\"status\":\"occupied\"},{\"seatId\":\"sea-043\",\"row\":4,\"col\":7,\"zone\":\"zon-003\",\"status\":\"available\"},{\"seatId\":\"sea-044\",\"row\":4,\"col\":8,\"zone\":\"zon-003\",\"status\":\"available\"},{\"seatId\":\"sea-045\",\"row\":4,\"col\":9,\"zone\":\"zon-003\",\"status\":\"occupied\"},{\"seatId\":\"sea-046\",\"row\":4,\"col\":10,\"zone\":\"zon-003\",\"status\":\"available\"},{\"seatId\":\"sea-047\",\"row\":4,\"col\":11,\"zone\":\"zon-003\",\"status\":\"available\"},{\"seatId\":\"sea-048\",\"row\":4,\"col\":12,\"zone\":\"zon-003\",\"status\":\"occupied\"}]}"
+            },
+            {
+              "name": "401 Unauthorized — Missing or invalid token",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/events/evt-001/seats",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["events", "evt-001", "seats"]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"UNAUTHORIZED\",\"message\":\"Invalid or missing token\"}"
+            },
+            {
+              "name": "404 Not Found — Event does not exist",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/events/evt-999/seats",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["events", "evt-999", "seats"]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"EVENT_NOT_FOUND\",\"message\":\"Event not found\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Payment",
+      "description": "Payment processing simulation. Protected. Has a 10% random failure rate.",
+      "item": [
+        {
+          "name": "POST /payment/process",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 (approved) or 402 (declined)\", function () {",
+                  "    pm.expect([200, 402]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Approved: all required fields present with correct types\", function () {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.all.keys(\"transactionId\", \"status\", \"message\", \"processedAt\");",
+                  "        pm.expect(body.status).to.equal(\"approved\");",
+                  "        pm.expect(body.transactionId).to.match(/^txn-\\d{6}$/);",
+                  "        pm.expect(body.message).to.be.a(\"string\");",
+                  "        pm.expect(body.processedAt).to.match(/^\\d{4}-\\d{2}-\\d{2}T/);",
+                  "        pm.collectionVariables.set(\"transactionId\", body.transactionId);",
+                  "    });",
+                  "} else if (pm.response.code === 402) {",
+                  "    pm.test(\"Declined: error response has correct shape\", function () {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.all.keys(\"error\", \"message\");",
+                  "        pm.expect(body.error).to.equal(\"PAYMENT_DECLINED\");",
+                  "        pm.expect(body.message).to.be.a(\"string\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"card\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payment/process",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "process"]
+            },
+            "description": "Simulates payment processing. Introduces an artificial 2–5 second delay to mimic real payment gateway latency.\n\n**10% random failure rate** — one in ten calls returns 402 PAYMENT_DECLINED regardless of input. This is by design.\n\n**Required body fields:**\n- `method` (string, enum): `card` | `paypal`\n\nOn success, the test script stores `transactionId` in `{{transactionId}}` for use in POST /bookings.\n\n**Protected:** Requires `Authorization: Bearer {{token}}`"
+          },
+          "response": [
+            {
+              "name": "200 OK — Payment approved",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"method\": \"card\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/payment/process",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["payment", "process"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"transactionId\":\"txn-583921\",\"status\":\"approved\",\"message\":\"Payment approved. You will receive a confirmation email.\",\"processedAt\":\"2026-07-04T15:30:00.000Z\"}"
+            },
+            {
+              "name": "400 Bad Request — Invalid method",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"method\": \"crypto\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/payment/process",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["payment", "process"]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"VALIDATION_ERROR\",\"message\":\"method must be card or paypal\"}"
+            },
+            {
+              "name": "401 Unauthorized — Missing or invalid token",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"method\": \"card\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/payment/process",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["payment", "process"]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"UNAUTHORIZED\",\"message\":\"Invalid or missing token\"}"
+            },
+            {
+              "name": "402 Payment Required — Payment declined (10% random)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"method\": \"card\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/payment/process",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["payment", "process"]
+                }
+              },
+              "status": "Payment Required",
+              "code": 402,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"PAYMENT_DECLINED\",\"message\":\"Your payment was declined. Please try again.\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Bookings",
+      "description": "Booking management. All endpoints protected. GET /bookings only returns the authenticated user's own bookings.",
+      "item": [
+        {
+          "name": "POST /bookings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"Booking has all required fields with correct types and values\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys(",
+                  "        \"id\", \"status\", \"total\", \"currency\", \"contactEmail\",",
+                  "        \"paymentMethod\", \"transactionId\", \"createdAt\", \"cancelledAt\",",
+                  "        \"eventId\", \"eventName\", \"eventDate\", \"eventTime\", \"location\",",
+                  "        \"seatId\", \"row\", \"col\", \"zone\"",
+                  "    );",
+                  "    pm.expect(body.id).to.match(/^TF-\\d{6}$/);",
+                  "    pm.expect(body.status).to.equal(\"confirmed\");",
+                  "    pm.expect(body.currency).to.equal(\"USD\");",
+                  "    pm.expect(body.total).to.be.a(\"number\");",
+                  "    pm.expect([\"card\", \"paypal\"]).to.include(body.paymentMethod);",
+                  "    pm.expect(body.cancelledAt).to.be.null;",
+                  "    pm.expect(body.row).to.be.a(\"number\");",
+                  "    pm.expect(body.col).to.be.a(\"number\");",
+                  "    pm.expect(body.zone).to.be.a(\"string\");",
+                  "    pm.expect(body.eventId).to.be.a(\"string\");",
+                  "    pm.expect(body.eventName).to.be.a(\"string\");",
+                  "    pm.expect(body.eventDate).to.match(/^\\d{4}-\\d{2}-\\d{2}$/);",
+                  "    pm.expect(body.seatId).to.be.a(\"string\");",
+                  "    pm.collectionVariables.set(\"bookingId\", body.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"evt-001\",\n  \"seatId\": \"sea-002\",\n  \"contactEmail\": \"sofia.hernandez@ticketflow.com\",\n  \"contactPhone\": \"+525511223344\",\n  \"payment\": {\n    \"method\": \"card\",\n    \"transactionId\": \"{{transactionId}}\"\n  },\n  \"total\": 150\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"]
+            },
+            "description": "Creates a confirmed booking. Atomically marks the seat as `occupied`.\n\n**Required body fields:**\n- `eventId` (string) — event ID\n- `seatId` (string) — seat ID; must have `status: available`\n- `contactEmail` (string)\n- `contactPhone` (string)\n- `payment` (object) — `{ method: \"card\"|\"paypal\", transactionId: string }`\n\n**Optional body fields:**\n- `total` (number) — defaults to `0` if omitted\n\n**Business rules:**\n- Booking ID format: `TF-` + 6 random digits\n- Returns 409 if the seat is already `occupied`\n- `cancelledAt` is always `null` on creation\n- `booking.zone` is the zone **name** (e.g. `VIP`), not the zone ID\n\nThe test script stores the new `bookingId` in `{{bookingId}}` automatically.\n\n**Protected:** Requires `Authorization: Bearer {{token}}`"
+          },
+          "response": [
+            {
+              "name": "201 Created — Booking confirmed",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"eventId\": \"evt-001\",\n  \"seatId\": \"sea-002\",\n  \"contactEmail\": \"sofia.hernandez@ticketflow.com\",\n  \"contactPhone\": \"+525511223344\",\n  \"payment\": {\n    \"method\": \"card\",\n    \"transactionId\": \"txn-583921\"\n  },\n  \"total\": 150\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/bookings",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["bookings"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"id\":\"TF-583921\",\"status\":\"confirmed\",\"total\":150,\"currency\":\"USD\",\"contactEmail\":\"sofia.hernandez@ticketflow.com\",\"paymentMethod\":\"card\",\"transactionId\":\"txn-583921\",\"createdAt\":\"2026-07-04 15:31:00\",\"cancelledAt\":null,\"eventId\":\"evt-001\",\"eventName\":\"Bad Liebre\",\"eventDate\":\"2025-02-15\",\"eventTime\":\"21:00\",\"location\":\"Ciudad de México, México\",\"seatId\":\"sea-002\",\"row\":1,\"col\":2,\"zone\":\"VIP\"}"
+            },
+            {
+              "name": "400 Bad Request — Missing required fields",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"eventId\": \"evt-001\",\n  \"seatId\": \"sea-002\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/bookings",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["bookings"]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"VALIDATION_ERROR\",\"message\":\"eventId, seatId, contactEmail, contactPhone and payment are required\"}"
+            },
+            {
+              "name": "401 Unauthorized — Missing or invalid token",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/bookings",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["bookings"]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"UNAUTHORIZED\",\"message\":\"Invalid or missing token\"}"
+            },
+            {
+              "name": "409 Conflict — Seat already occupied",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"eventId\": \"evt-001\",\n  \"seatId\": \"sea-001\",\n  \"contactEmail\": \"sofia.hernandez@ticketflow.com\",\n  \"contactPhone\": \"+525511223344\",\n  \"payment\": {\n    \"method\": \"card\",\n    \"transactionId\": \"txn-583921\"\n  },\n  \"total\": 150\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/bookings",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["bookings"]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"SEAT_UNAVAILABLE\",\"message\":\"The selected seat is not available\"}"
+            }
+          ]
+        },
+        {
+          "name": "GET /bookings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response has data array and pagination object\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys(\"data\", \"pagination\");",
+                  "    pm.expect(body.data).to.be.an(\"array\");",
+                  "    pm.expect(body.pagination).to.have.all.keys(\"page\", \"limit\", \"total\", \"totalPages\");",
+                  "    pm.expect(body.pagination.page).to.be.a(\"number\");",
+                  "    pm.expect(body.pagination.limit).to.be.a(\"number\");",
+                  "    pm.expect(body.pagination.total).to.be.a(\"number\");",
+                  "    pm.expect(body.pagination.totalPages).to.be.a(\"number\");",
+                  "    pm.expect(body.pagination.totalPages).to.equal(Math.ceil(body.pagination.total / body.pagination.limit));",
+                  "});",
+                  "pm.test(\"limit is capped at 50\", function () {",
+                  "    pm.expect(pm.response.json().pagination.limit).to.be.at.most(50);",
+                  "});",
+                  "pm.test(\"Each booking item has all required fields with correct types\", function () {",
+                  "    pm.response.json().data.forEach(function (booking) {",
+                  "        pm.expect(booking).to.have.all.keys(",
+                  "            \"id\", \"status\", \"total\", \"currency\", \"contactEmail\",",
+                  "            \"paymentMethod\", \"transactionId\", \"createdAt\", \"cancelledAt\",",
+                  "            \"eventId\", \"eventName\", \"eventDate\", \"eventTime\", \"location\",",
+                  "            \"seatId\", \"row\", \"col\", \"zone\"",
+                  "        );",
+                  "        pm.expect([\"confirmed\", \"pending\", \"cancelled\"]).to.include(booking.status);",
+                  "        pm.expect([\"card\", \"paypal\"]).to.include(booking.paymentMethod);",
+                  "        pm.expect(booking.currency).to.equal(\"USD\");",
+                  "        pm.expect(booking.total).to.be.a(\"number\");",
+                  "        pm.expect(booking.row).to.be.a(\"number\");",
+                  "        pm.expect(booking.col).to.be.a(\"number\");",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number. Default: 1."
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Items per page. Default: 10. Maximum: 50 (server-clamped)."
+                },
+                {
+                  "key": "status",
+                  "value": "confirmed",
+                  "description": "Filter by booking status. Enum: confirmed | pending | cancelled.",
+                  "disabled": true
+                },
+                {
+                  "key": "eventName",
+                  "value": "Bad",
+                  "description": "Partial match on event name. Case-insensitive SQL LIKE (%value%).",
+                  "disabled": true
+                },
+                {
+                  "key": "dateFrom",
+                  "value": "2025-01-01",
+                  "description": "Filter events on or after this date (YYYY-MM-DD, inclusive).",
+                  "disabled": true
+                },
+                {
+                  "key": "dateTo",
+                  "value": "2026-12-31",
+                  "description": "Filter events on or before this date (YYYY-MM-DD, inclusive).",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns a paginated list of the authenticated user's bookings, ordered by `createdAt DESC`.\n\n**Scope:** Only returns bookings belonging to the authenticated user. No cross-user access.\n\n**Query parameters (all optional):**\n- `page` — page number, default 1\n- `limit` — items per page, default 10, max 50\n- `status` — filter: `confirmed` | `pending` | `cancelled`\n- `eventName` — partial match (SQL LIKE `%value%`)\n- `dateFrom` — filter events on or after date (YYYY-MM-DD)\n- `dateTo` — filter events on or before date (YYYY-MM-DD)\n\n**Field note:** `cancelledAt` is SQLite datetime format (`YYYY-MM-DD HH:MM:SS`) or `null`. This differs from the ISO 8601 format returned by `PATCH /bookings/:id/cancel`.\n\n**Protected:** Requires `Authorization: Bearer {{token}}`"
+          },
+          "response": [
+            {
+              "name": "200 OK — All bookings, no filters (user: sofia / usr-001)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/bookings?page=1&limit=10",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["bookings"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "10" }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"data\":[{\"id\":\"TF-001\",\"status\":\"confirmed\",\"total\":150,\"currency\":\"USD\",\"contactEmail\":\"sofia.hernandez@ticketflow.com\",\"paymentMethod\":\"card\",\"transactionId\":\"txn-483920\",\"createdAt\":\"2026-07-04 08:30:00\",\"cancelledAt\":null,\"eventId\":\"evt-001\",\"eventName\":\"Bad Liebre\",\"eventDate\":\"2025-02-15\",\"eventTime\":\"21:00\",\"location\":\"Ciudad de México, México\",\"seatId\":\"sea-001\",\"row\":1,\"col\":1,\"zone\":\"VIP\"},{\"id\":\"TF-002\",\"status\":\"pending\",\"total\":140,\"currency\":\"USD\",\"contactEmail\":\"sofia.hernandez@ticketflow.com\",\"paymentMethod\":\"paypal\",\"transactionId\":\"txn-728154\",\"createdAt\":\"2026-07-04 08:30:00\",\"cancelledAt\":null,\"eventId\":\"evt-008\",\"eventName\":\"Doble Lipa\",\"eventDate\":\"2025-10-18\",\"eventTime\":\"20:00\",\"location\":\"Madrid, España\",\"seatId\":\"sea-049\",\"row\":1,\"col\":1,\"zone\":\"VIP\"}],\"pagination\":{\"page\":1,\"limit\":10,\"total\":2,\"totalPages\":1}}"
+            },
+            {
+              "name": "200 OK — Filtered by status=confirmed",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/bookings?page=1&limit=10&status=confirmed",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["bookings"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "10" },
+                    { "key": "status", "value": "confirmed" }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"data\":[{\"id\":\"TF-001\",\"status\":\"confirmed\",\"total\":150,\"currency\":\"USD\",\"contactEmail\":\"sofia.hernandez@ticketflow.com\",\"paymentMethod\":\"card\",\"transactionId\":\"txn-483920\",\"createdAt\":\"2026-07-04 08:30:00\",\"cancelledAt\":null,\"eventId\":\"evt-001\",\"eventName\":\"Bad Liebre\",\"eventDate\":\"2025-02-15\",\"eventTime\":\"21:00\",\"location\":\"Ciudad de México, México\",\"seatId\":\"sea-001\",\"row\":1,\"col\":1,\"zone\":\"VIP\"}],\"pagination\":{\"page\":1,\"limit\":10,\"total\":1,\"totalPages\":1}}"
+            },
+            {
+              "name": "200 OK — Cancelled booking example (cancelledAt is SQLite datetime string)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/bookings?page=1&limit=10&status=cancelled",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["bookings"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "10" },
+                    { "key": "status", "value": "cancelled" }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"data\":[{\"id\":\"TF-004\",\"status\":\"cancelled\",\"total\":100,\"currency\":\"USD\",\"contactEmail\":\"mateo.garcia@ticketflow.com\",\"paymentMethod\":\"paypal\",\"transactionId\":\"txn-640271\",\"createdAt\":\"2026-07-04 08:30:00\",\"cancelledAt\":\"2025-09-12 18:45:00\",\"eventId\":\"evt-009\",\"eventName\":\"Taylor Flux\",\"eventDate\":\"2025-11-29\",\"eventTime\":\"21:00\",\"location\":\"Madrid, España\",\"seatId\":\"sea-062\",\"row\":2,\"col\":4,\"zone\":\"Premium\"}],\"pagination\":{\"page\":1,\"limit\":10,\"total\":1,\"totalPages\":1}}"
+            },
+            {
+              "name": "200 OK — Empty result (no bookings match filter)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/bookings?page=1&limit=10&eventName=nonexistent",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["bookings"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "10" },
+                    { "key": "eventName", "value": "nonexistent" }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"data\":[],\"pagination\":{\"page\":1,\"limit\":10,\"total\":0,\"totalPages\":0}}"
+            },
+            {
+              "name": "401 Unauthorized — Missing or invalid token",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/bookings",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["bookings"]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"UNAUTHORIZED\",\"message\":\"Invalid or missing token\"}"
+            }
+          ]
+        },
+        {
+          "name": "PATCH /bookings/:id/cancel",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Cancel response has all required fields\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys(\"id\", \"status\", \"cancelledAt\");",
+                  "    pm.expect(body.id).to.be.a(\"string\");",
+                  "    pm.expect(body.status).to.equal(\"cancelled\");",
+                  "    pm.expect(body.cancelledAt).to.be.a(\"string\");",
+                  "});",
+                  "pm.test(\"cancelledAt is ISO 8601 format\", function () {",
+                  "    const { cancelledAt } = pm.response.json();",
+                  "    pm.expect(cancelledAt).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/:id/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", ":id", "cancel"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{bookingId}}",
+                  "description": "Booking ID in format TF-XXXXXX. Must belong to the authenticated user."
+                }
+              ]
+            },
+            "description": "Cancels a booking and releases the seat back to `available`.\n\n**Business rules:**\n- The booking must belong to the authenticated user\n- Only non-cancelled bookings can be cancelled (idempotency is NOT supported — calling this twice returns 409)\n- Releases the seat to `available` so other users can book it\n\n**Response field note:** `cancelledAt` is ISO 8601 from `new Date().toISOString()` (e.g. `2026-07-04T16:00:00.000Z`). This differs from the SQLite datetime string format (`YYYY-MM-DD HH:MM:SS`) returned by `GET /bookings`.\n\n**Protected:** Requires `Authorization: Bearer {{token}}`"
+          },
+          "response": [
+            {
+              "name": "200 OK — Booking cancelled",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/bookings/TF-001/cancel",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["bookings", "TF-001", "cancel"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"id\":\"TF-001\",\"status\":\"cancelled\",\"cancelledAt\":\"2026-07-04T16:00:00.000Z\"}"
+            },
+            {
+              "name": "401 Unauthorized — Missing or invalid token",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/bookings/TF-001/cancel",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["bookings", "TF-001", "cancel"]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"UNAUTHORIZED\",\"message\":\"Invalid or missing token\"}"
+            },
+            {
+              "name": "404 Not Found — Booking does not exist or belongs to another user",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/bookings/TF-999999/cancel",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["bookings", "TF-999999", "cancel"]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"BOOKING_NOT_FOUND\",\"message\":\"Booking not found\"}"
+            },
+            {
+              "name": "409 Conflict — Booking already cancelled",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/bookings/TF-001/cancel",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["bookings", "TF-001", "cancel"]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json; charset=utf-8" }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"INVALID_TRANSITION\",\"message\":\"This booking cannot be cancelled in its current state\"}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
