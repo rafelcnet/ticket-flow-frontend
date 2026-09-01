@@ -13,7 +13,6 @@ const NAV_ITEMS = [
  * Versión inicial: sólo estructura y navegación; el perfil de usuario y el
  * resto del contenido del sidebar llegan con su ticket correspondiente.
  */
-// TODO UNIT TEST
 export const AppLayout = () => (
   <div className={styles.shell}>
     <aside className={styles.sidebar}>

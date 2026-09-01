@@ -5,7 +5,6 @@ import { AppRouter } from './routes/AppRouter'
  * Los providers de las 4 slices de estado (8.4) se montan aquí cuando
  * lleguen sus tickets correspondientes.
  */
-// REFACTOR UNIT TEST
 const App = () => <AppRouter />
 
 export default App
