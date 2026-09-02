@@ -1,12 +1,32 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { notifyGlobalError } from './http/error-bus'
+import { clearToken, saveToken } from './http/token.storage'
 import { ROUTES } from './routes/routes.config'
+import { getProfile } from './services/users.service'
+
+vi.mock('./services/users.service')
 
 describe('App', () => {
+  beforeEach(() => {
+    vi.mocked(getProfile).mockResolvedValue({
+      id: 'usr-001',
+      name: 'Sofía',
+      lastname: 'Hernández',
+      email: 'sofia.hernandez@ticketflow.com',
+      phone: '+525511223344',
+    })
+  })
+
+  afterEach(() => {
+    clearToken()
+    vi.resetAllMocks()
+  })
+
   it('monta el router de la aplicación en lugar de una pantalla fija', () => {
-    // Given: el usuario abre la ruta de reservas
+    // Given: el usuario, ya autenticado, abre la ruta de reservas
+    saveToken('tok_abc123')
     window.history.pushState({}, '', ROUTES.bookings)
 
     // When: se renderiza la composición raíz
