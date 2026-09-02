@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { AuthProvider } from '../state/auth/auth.context'
 import { AppRouter } from './AppRouter'
 import { ROUTES } from './routes.config'
 
@@ -11,6 +12,14 @@ const situarEn = (ruta: string) => {
 const encabezado = (nombre: string) =>
   screen.getByRole('heading', { level: 1, name: nombre })
 
+/** `LoginPage` exige un `AuthProvider` en el árbol desde TF-3. */
+const renderRouter = () =>
+  render(
+    <AuthProvider>
+      <AppRouter />
+    </AuthProvider>,
+  )
+
 describe('AppRouter', () => {
   beforeEach(() => {
     situarEn('/')
@@ -21,10 +30,12 @@ describe('AppRouter', () => {
     situarEn(ROUTES.login)
 
     // When: se monta el router
-    render(<AppRouter />)
+    renderRouter()
 
     // Then: se renderiza la pantalla de login
-    expect(encabezado('Login')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'TicketFlow' }),
+    ).toBeInTheDocument()
   })
 
   it('muestra la pantalla de inicio en la ruta /home', () => {
@@ -32,7 +43,7 @@ describe('AppRouter', () => {
     situarEn(ROUTES.home)
 
     // When: se monta el router
-    render(<AppRouter />)
+    renderRouter()
 
     // Then: se renderiza la pantalla de inicio
     expect(encabezado('Home')).toBeInTheDocument()
@@ -43,7 +54,7 @@ describe('AppRouter', () => {
     situarEn(ROUTES.buy)
 
     // When: se monta el router
-    render(<AppRouter />)
+    renderRouter()
 
     // Then: se renderiza la pantalla de compra
     expect(encabezado('Buy Tickets')).toBeInTheDocument()
@@ -54,7 +65,7 @@ describe('AppRouter', () => {
     situarEn(ROUTES.bookings)
 
     // When: se monta el router
-    render(<AppRouter />)
+    renderRouter()
 
     // Then: se renderiza la pantalla de reservas
     expect(encabezado('My Bookings')).toBeInTheDocument()
@@ -65,7 +76,7 @@ describe('AppRouter', () => {
     situarEn(ROUTES.home)
 
     // When: se monta el router
-    render(<AppRouter />)
+    renderRouter()
 
     // Then: la pantalla se acompaña de la navegación lateral
     expect(screen.getByRole('link', { name: 'Buy Tickets' })).toBeInTheDocument()
@@ -77,7 +88,7 @@ describe('AppRouter', () => {
     situarEn(ROUTES.login)
 
     // When: se monta el router
-    render(<AppRouter />)
+    renderRouter()
 
     // Then: la pantalla de login no muestra la navegación de la app
     expect(screen.queryByRole('link', { name: 'Buy Tickets' })).not.toBeInTheDocument()
@@ -88,10 +99,12 @@ describe('AppRouter', () => {
     situarEn('/ruta-inexistente')
 
     // When: se monta el router
-    render(<AppRouter />)
+    renderRouter()
 
     // Then: se le devuelve a la pantalla de login
-    expect(encabezado('Login')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'TicketFlow' }),
+    ).toBeInTheDocument()
     expect(window.location.pathname).toBe(ROUTES.login)
   })
 
@@ -100,10 +113,12 @@ describe('AppRouter', () => {
     situarEn('/')
 
     // When: se monta el router
-    render(<AppRouter />)
+    renderRouter()
 
     // Then: se le devuelve a la pantalla de login
-    expect(encabezado('Login')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'TicketFlow' }),
+    ).toBeInTheDocument()
     expect(window.location.pathname).toBe(ROUTES.login)
   })
 
@@ -113,7 +128,7 @@ describe('AppRouter', () => {
     const entradasPrevias = window.history.length
 
     // When: se monta el router y ocurre la redirección
-    render(<AppRouter />)
+    renderRouter()
 
     // Then: la redirección reemplaza la entrada en vez de apilar una nueva
     expect(window.history.length).toBe(entradasPrevias)
