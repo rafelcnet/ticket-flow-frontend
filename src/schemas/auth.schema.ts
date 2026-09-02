@@ -1,10 +1,14 @@
 import { z } from 'zod'
 import { UserSchema } from './user.schema'
 
-/** `POST /auth/login` — request body (SpecHttp 7.2). */
+/**
+ * `POST /auth/login` — request body (SpecHttp 7.2).
+ * `min(1)` es la única fuente de verdad para "campos requeridos" (SpecAuth
+ * 2.1) — el formulario no duplica esta validación por su cuenta.
+ */
 export const LoginRequestSchema = z.object({
-  email: z.string(),
-  password: z.string(),
+  email: z.string().min(1, 'El correo es obligatorio'),
+  password: z.string().min(1, 'La contraseña es obligatoria'),
 })
 
 export type LoginRequest = z.infer<typeof LoginRequestSchema>
