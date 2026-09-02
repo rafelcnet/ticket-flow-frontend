@@ -30,7 +30,11 @@
   gap: var(--space-2);
 }
 
-.navLink {
+.navLink,
+.navLinkDisabled {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-control);
   color: var(--color-snow-1);
@@ -43,6 +47,49 @@
 .navLinkActive {
   background-color: var(--color-bg-medium);
   color: var(--color-snow-3);
+  border-left: 2px solid var(--color-aurora-orange);
+}
+
+.navLinkDisabled {
+  color: var(--color-snow-1);
+  opacity: 0.55;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.userSummary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: var(--border-subtle);
+}
+
+.userName {
+  font-weight: var(--font-weight-heading);
+  color: var(--color-snow-2);
+}
+
+.userEmail {
+  font-size: 0.85rem;
+  color: var(--color-snow-1);
+  overflow-wrap: anywhere;
+}
+
+.logoutButton {
+  align-self: flex-start;
+  padding: var(--space-2) var(--space-3);
+  background: none;
+  border: var(--border-subtle);
+  border-radius: var(--radius-control);
+  color: var(--color-snow-1);
+  cursor: pointer;
+}
+
+.logoutButton:hover {
+  background-color: var(--color-bg-light);
 }
 
 .content {
@@ -61,16 +108,48 @@
     width: 100%;
     order: 2;
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-4);
+    gap: var(--space-3);
     padding: var(--space-3) var(--space-4);
     border-right: none;
     border-top: var(--border-subtle);
   }
 
+  .wordmark {
+    display: none;
+  }
+
   .nav {
     flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .navLink,
+  .navLinkDisabled {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .navLinkActive {
+    border-left: none;
+    border-bottom: 2px solid var(--color-aurora-orange);
+  }
+
+  .spacer {
+    display: none;
+  }
+
+  .userSummary {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-3);
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .userEmail {
+    display: none;
   }
 
   .content {

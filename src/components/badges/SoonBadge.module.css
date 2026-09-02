@@ -1,0 +1,7 @@
+.badge {
+  padding: 2px 8px;
+  background-color: var(--color-bg-lighter);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  color: var(--color-snow-2);
+}

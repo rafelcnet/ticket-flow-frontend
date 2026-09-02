@@ -1,8 +1,12 @@
 import { render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { clearToken, saveToken } from '../http/token.storage'
+import { getProfile } from '../services/users.service'
 import { AuthProvider } from '../state/auth/auth.context'
 import { AppRouter } from './AppRouter'
 import { ROUTES } from './routes.config'
+
+vi.mock('../services/users.service')
 
 /** Sitúa el navegador simulado en una ruta antes de montar el router. */
 const situarEn = (ruta: string) => {
@@ -20,9 +24,23 @@ const renderRouter = () =>
     </AuthProvider>,
   )
 
+const usuario = {
+  id: 'usr-001',
+  name: 'Sofía',
+  lastname: 'Hernández',
+  email: 'sofia.hernandez@ticketflow.com',
+  phone: '+525511223344',
+}
+
 describe('AppRouter', () => {
   beforeEach(() => {
     situarEn('/')
+    vi.mocked(getProfile).mockResolvedValue(usuario)
+  })
+
+  afterEach(() => {
+    clearToken()
+    vi.resetAllMocks()
   })
 
   it('muestra la pantalla de login en la ruta /login', () => {
@@ -38,8 +56,23 @@ describe('AppRouter', () => {
     ).toBeInTheDocument()
   })
 
-  it('muestra la pantalla de inicio en la ruta /home', () => {
-    // Given: el usuario abre la ruta de inicio
+  it('redirige al login si intenta entrar a /home sin haber iniciado sesión (Context.md 8.5)', () => {
+    // Given: no hay ningún token guardado
+    situarEn(ROUTES.home)
+
+    // When: se monta el router
+    renderRouter()
+
+    // Then: la guarda lo devuelve a /login en vez de renderizar el shell
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'TicketFlow' }),
+    ).toBeInTheDocument()
+    expect(window.location.pathname).toBe(ROUTES.login)
+  })
+
+  it('muestra la pantalla de inicio en /home cuando hay una sesión activa', () => {
+    // Given: el usuario ya inició sesión
+    saveToken('tok_abc123')
     situarEn(ROUTES.home)
 
     // When: se monta el router
@@ -49,8 +82,9 @@ describe('AppRouter', () => {
     expect(encabezado('Home')).toBeInTheDocument()
   })
 
-  it('muestra la pantalla de compra en la ruta /buy', () => {
-    // Given: el usuario abre la ruta de compra
+  it('muestra la pantalla de compra en /buy cuando hay una sesión activa', () => {
+    // Given: el usuario ya inició sesión
+    saveToken('tok_abc123')
     situarEn(ROUTES.buy)
 
     // When: se monta el router
@@ -60,8 +94,9 @@ describe('AppRouter', () => {
     expect(encabezado('Buy Tickets')).toBeInTheDocument()
   })
 
-  it('muestra la pantalla de reservas en la ruta /bookings', () => {
-    // Given: el usuario abre la ruta de reservas
+  it('muestra la pantalla de reservas en /bookings cuando hay una sesión activa', () => {
+    // Given: el usuario ya inició sesión
+    saveToken('tok_abc123')
     situarEn(ROUTES.bookings)
 
     // When: se monta el router
@@ -72,15 +107,16 @@ describe('AppRouter', () => {
   })
 
   it('envuelve las pantallas autenticadas en el shell de navegación', () => {
-    // Given: el usuario abre una ruta autenticada
+    // Given: el usuario ya inició sesión
+    saveToken('tok_abc123')
     situarEn(ROUTES.home)
 
     // When: se monta el router
     renderRouter()
 
-    // Then: la pantalla se acompaña de la navegación lateral
-    expect(screen.getByRole('link', { name: 'Buy Tickets' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'My Bookings' })).toBeInTheDocument()
+    // Then: la pantalla se acompaña de la navegación lateral (SpecLayout 4.2)
+    expect(screen.getByRole('link', { name: /Buy tickets/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /My tickets/ })).toBeInTheDocument()
   })
 
   it('deja el login fuera del shell de navegación', () => {
@@ -91,7 +127,7 @@ describe('AppRouter', () => {
     renderRouter()
 
     // Then: la pantalla de login no muestra la navegación de la app
-    expect(screen.queryByRole('link', { name: 'Buy Tickets' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Buy tickets/ })).not.toBeInTheDocument()
   })
 
   it('redirige al login cuando la ruta no existe', () => {
