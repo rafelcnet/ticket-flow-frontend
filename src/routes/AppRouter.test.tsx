@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearToken, saveToken } from '../http/token.storage'
-import { getEvents } from '../services/events.service'
+import { getPaginatedEvents } from '../services/events.service'
 import { getProfile } from '../services/users.service'
 import { AuthProvider } from '../state/auth/auth.context'
 import { AppRouter } from './AppRouter'
@@ -38,7 +38,10 @@ describe('AppRouter', () => {
   beforeEach(() => {
     situarEn('/')
     vi.mocked(getProfile).mockResolvedValue(usuario)
-    vi.mocked(getEvents).mockResolvedValue([])
+    vi.mocked(getPaginatedEvents).mockResolvedValue({
+      data: [],
+      pagination: { page: 1, limit: 6, total: 0, totalPages: 0 },
+    })
   })
 
   afterEach(() => {

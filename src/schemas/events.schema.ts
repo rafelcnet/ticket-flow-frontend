@@ -21,3 +21,20 @@ export const EventsResponseSchema = z.object({
 })
 
 export type EventsResponse = z.infer<typeof EventsResponseSchema>
+
+/**
+ * `GET /events/paginated` — 200 OK (FIX-1: paginación del catálogo, 6
+ * eventos por página). Misma forma de `pagination` que `GET /bookings`
+ * (`schemas/booking.schema`): `{ page, limit, total, totalPages }`.
+ */
+export const PaginatedEventsResponseSchema = z.object({
+  data: z.array(EventSchema),
+  pagination: z.object({
+    page: z.number(),
+    limit: z.number(),
+    total: z.number(),
+    totalPages: z.number(),
+  }),
+})
+
+export type PaginatedEventsResponse = z.infer<typeof PaginatedEventsResponseSchema>

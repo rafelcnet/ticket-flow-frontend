@@ -163,7 +163,7 @@ describe('BookingsPage', () => {
     vi.mocked(listBookings).mockClear()
 
     // When: el usuario pulsa Next
-    await usuario.click(screen.getByRole('button', { name: 'Next' }))
+    await usuario.click(screen.getByRole('button', { name: 'Next page' }))
 
     // Then: se pide la página 2
     expect(listBookings).toHaveBeenCalledWith({ page: 2, limit: 10 })

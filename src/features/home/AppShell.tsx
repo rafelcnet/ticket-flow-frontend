@@ -4,7 +4,6 @@ import { Sidebar } from '../../components/layout/Sidebar'
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTES } from '../../routes/routes.config'
 import { logout } from '../../services/auth.service'
-import { clearEventsCache } from '../../services/events.service'
 import { getProfile } from '../../services/users.service'
 
 /**
@@ -41,7 +40,6 @@ export const AppShell = () => {
     try {
       await logout()
       dispatch({ type: 'LOGOUT' })
-      clearEventsCache()
       navigate(ROUTES.login)
     } catch {
       // 401 → ya resuelto por el interceptor global; otros errores ya

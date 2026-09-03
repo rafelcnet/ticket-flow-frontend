@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../../state/auth/auth.context'
-import { getEvents } from '../../services/events.service'
+import { getPaginatedEvents } from '../../services/events.service'
 import { getSeatMap } from '../../services/seats.service'
 import { processPayment } from '../../services/payment.service'
 import { createBooking } from '../../services/bookings.service'
@@ -75,7 +75,10 @@ const renderPurchasePage = () =>
 describe('PurchasePage', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-    vi.mocked(getEvents).mockResolvedValue(eventos)
+    vi.mocked(getPaginatedEvents).mockResolvedValue({
+      data: eventos,
+      pagination: { page: 1, limit: 6, total: eventos.length, totalPages: 1 },
+    })
     vi.mocked(getSeatMap).mockResolvedValue(seatMapArenaResponse)
     vi.mocked(processPayment).mockResolvedValue(respuestaPagoAprobado)
     vi.mocked(createBooking).mockResolvedValue(reservaCreada)

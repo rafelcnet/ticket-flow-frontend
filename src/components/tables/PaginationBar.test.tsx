@@ -19,11 +19,11 @@ describe('PaginationBar', () => {
     render(<PaginationBar page={2} totalPages={3} onPageChange={vi.fn()} />)
 
     // Then: se ven los controles esperados
-    expect(screen.getByRole('button', { name: 'Previous' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '3' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeInTheDocument()
   })
 
   it('marca la página actual con aria-current', () => {
@@ -31,7 +31,10 @@ describe('PaginationBar', () => {
     render(<PaginationBar page={2} totalPages={3} onPageChange={vi.fn()} />)
 
     // Then: sólo ese botón queda marcado
-    expect(screen.getByRole('button', { name: '2' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('button', { name: '2' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
     expect(screen.getByRole('button', { name: '1' })).not.toHaveAttribute('aria-current')
   })
 
@@ -40,7 +43,7 @@ describe('PaginationBar', () => {
     render(<PaginationBar page={1} totalPages={3} onPageChange={vi.fn()} />)
 
     // Then: Previous está deshabilitado
-    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
   })
 
   it('deshabilita Next en la última página', () => {
@@ -48,7 +51,7 @@ describe('PaginationBar', () => {
     render(<PaginationBar page={3} totalPages={3} onPageChange={vi.fn()} />)
 
     // Then: Next está deshabilitado
-    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
   })
 
   it('notifica el número de página al hacer click en un número', async () => {
@@ -71,7 +74,7 @@ describe('PaginationBar', () => {
     render(<PaginationBar page={1} totalPages={3} onPageChange={onPageChange} />)
 
     // When: pulsa Next
-    await usuario.click(screen.getByRole('button', { name: 'Next' }))
+    await usuario.click(screen.getByRole('button', { name: 'Next page' }))
 
     // Then: se pide la página 2
     expect(onPageChange).toHaveBeenCalledWith(2)
@@ -84,7 +87,7 @@ describe('PaginationBar', () => {
     render(<PaginationBar page={2} totalPages={3} onPageChange={onPageChange} />)
 
     // When: pulsa Previous
-    await usuario.click(screen.getByRole('button', { name: 'Previous' }))
+    await usuario.click(screen.getByRole('button', { name: 'Previous page' }))
 
     // Then: se pide la página 1
     expect(onPageChange).toHaveBeenCalledWith(1)
