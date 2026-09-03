@@ -3,12 +3,14 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { logout } from '../../services/auth.service'
+import { clearEventsCache } from '../../services/events.service'
 import { getProfile } from '../../services/users.service'
 import { AuthProvider } from '../../state/auth/auth.context'
 import { AppShell } from './AppShell'
 
 vi.mock('../../services/users.service')
 vi.mock('../../services/auth.service')
+vi.mock('../../services/events.service')
 
 const usuario = {
   id: 'usr-001',
@@ -102,9 +104,11 @@ describe('AppShell', () => {
     // When: pulsa Logout
     await usuarioInteraccion.click(screen.getByRole('button', { name: 'Logout' }))
 
-    // Then: se llama a auth.service.logout y se navega a /login
+    // Then: se llama a auth.service.logout, se invalida la caché de eventos
+    // (SpecPurchase 6) y se navega a /login
     expect(logout).toHaveBeenCalledOnce()
     expect(await screen.findByText('Pantalla de login')).toBeInTheDocument()
+    expect(clearEventsCache).toHaveBeenCalledOnce()
   })
 
   it('no cierra sesión localmente si la petición de logout falla (SpecAuth 3.3)', async () => {
@@ -118,9 +122,10 @@ describe('AppShell', () => {
     // When: pulsa Logout
     await usuarioInteraccion.click(screen.getByRole('button', { name: 'Logout' }))
 
-    // Then: no navega y el usuario sigue viéndose autenticado en el sidebar
+    // Then: no navega, no invalida la caché y el usuario sigue autenticado en el sidebar
     expect(logout).toHaveBeenCalledOnce()
     expect(screen.queryByText('Pantalla de login')).not.toBeInTheDocument()
     expect(screen.getByText('Sofía Hernández')).toBeInTheDocument()
+    expect(clearEventsCache).not.toHaveBeenCalled()
   })
 })

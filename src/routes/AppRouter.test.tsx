@@ -1,12 +1,14 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearToken, saveToken } from '../http/token.storage'
+import { getEvents } from '../services/events.service'
 import { getProfile } from '../services/users.service'
 import { AuthProvider } from '../state/auth/auth.context'
 import { AppRouter } from './AppRouter'
 import { ROUTES } from './routes.config'
 
 vi.mock('../services/users.service')
+vi.mock('../services/events.service')
 
 /** Sitúa el navegador simulado en una ruta antes de montar el router. */
 const situarEn = (ruta: string) => {
@@ -36,6 +38,7 @@ describe('AppRouter', () => {
   beforeEach(() => {
     situarEn('/')
     vi.mocked(getProfile).mockResolvedValue(usuario)
+    vi.mocked(getEvents).mockResolvedValue([])
   })
 
   afterEach(() => {
@@ -90,8 +93,8 @@ describe('AppRouter', () => {
     // When: se monta el router
     renderRouter()
 
-    // Then: se renderiza la pantalla de compra
-    expect(encabezado('Buy Tickets')).toBeInTheDocument()
+    // Then: se renderiza el stepper de compra, arrancando en Select Event
+    expect(screen.getByText('Select Event')).toBeInTheDocument()
   })
 
   it('muestra la pantalla de reservas en /bookings cuando hay una sesión activa', () => {

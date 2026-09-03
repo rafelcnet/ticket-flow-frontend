@@ -1,0 +1,67 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 480px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field label {
+  font-size: 0.85rem;
+  color: var(--color-snow-2);
+}
+
+.field input {
+  padding: var(--space-3);
+  background-color: var(--color-bg-dark);
+  border: var(--border-subtle);
+  border-radius: var(--radius-control);
+  color: var(--color-snow-3);
+}
+
+.field input[aria-invalid='true'] {
+  border-color: var(--color-aurora-red);
+}
+
+.fieldError {
+  font-size: 0.8rem;
+  color: var(--color-aurora-red);
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-4);
+}
+
+.back {
+  padding: var(--space-3) var(--space-6);
+  background: none;
+  border: var(--border-subtle);
+  border-radius: var(--radius-control);
+  color: var(--color-snow-1);
+  cursor: pointer;
+}
+
+.back:hover {
+  background-color: var(--color-bg-light);
+}
+
+.next {
+  padding: var(--space-3) var(--space-6);
+  background-color: var(--color-frost-3);
+  border: none;
+  border-radius: var(--radius-control);
+  color: var(--color-bg-dark);
+  font-weight: var(--font-weight-heading);
+  cursor: pointer;
+}
+
+.next:hover {
+  background-color: var(--color-frost-4);
+}
