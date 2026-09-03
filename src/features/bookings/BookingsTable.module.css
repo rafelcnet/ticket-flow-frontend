@@ -1,0 +1,18 @@
+.cancel {
+  padding: var(--space-2) var(--space-4);
+  background: none;
+  border: 1px solid var(--color-aurora-red);
+  border-radius: var(--radius-control);
+  color: var(--color-aurora-red);
+  cursor: pointer;
+}
+
+.cancel:hover:not(:disabled) {
+  background-color: var(--color-aurora-red);
+  color: var(--color-snow-3);
+}
+
+.cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

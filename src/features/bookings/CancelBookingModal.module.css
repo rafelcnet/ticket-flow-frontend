@@ -1,0 +1,53 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgb(46 52 64 / 70%);
+  z-index: 10;
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 360px;
+  padding: var(--space-6);
+  background-color: var(--color-bg-medium);
+  border-radius: var(--radius-card);
+  color: var(--color-snow-2);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-4);
+}
+
+.dismiss {
+  padding: var(--space-3) var(--space-6);
+  background: none;
+  border: var(--border-subtle);
+  border-radius: var(--radius-control);
+  color: var(--color-snow-1);
+  cursor: pointer;
+}
+
+.dismiss:hover {
+  background-color: var(--color-bg-light);
+}
+
+.confirm {
+  padding: var(--space-3) var(--space-6);
+  background-color: var(--color-aurora-red);
+  border: none;
+  border-radius: var(--radius-control);
+  color: var(--color-snow-3);
+  font-weight: var(--font-weight-heading);
+  cursor: pointer;
+}
+
+.confirm:hover {
+  opacity: 0.9;
+}

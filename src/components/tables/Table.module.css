@@ -1,0 +1,22 @@
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  border-bottom: var(--border-subtle);
+}
+
+.table th {
+  color: var(--color-snow-2);
+  font-weight: var(--font-weight-heading);
+  font-size: 0.85rem;
+}
+
+.table td {
+  color: var(--color-snow-1);
+  font-size: 0.9rem;
+}

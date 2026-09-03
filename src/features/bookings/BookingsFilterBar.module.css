@@ -1,0 +1,20 @@
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.bar input,
+.bar select {
+  padding: var(--space-3);
+  background-color: var(--color-bg-dark);
+  border: var(--border-subtle);
+  border-radius: var(--radius-control);
+  color: var(--color-snow-3);
+}
+
+.bar input[type='text'] {
+  flex: 1;
+  min-width: 200px;
+}
