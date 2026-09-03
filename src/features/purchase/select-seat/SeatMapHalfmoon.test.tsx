@@ -1,0 +1,68 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
+import { SeatMapHalfmoon } from './SeatMapHalfmoon'
+
+const zonas = [{ id: 'zon-001', name: 'Premium', color: '#f0a500', price: 110 }]
+
+const asientos = [
+  { seatId: 'sea-001', row: 1, col: 1, zone: 'zon-001', status: 'available' as const },
+  { seatId: 'sea-002', row: 1, col: 2, zone: 'zon-001', status: 'occupied' as const },
+  { seatId: 'sea-003', row: 2, col: 1, zone: 'zon-001', status: 'available' as const },
+]
+
+describe('SeatMapHalfmoon', () => {
+  it('renderiza el layout de teatro con un botón por asiento (Context.md 5.4: layout Halfmoon)', () => {
+    // Given / When: se renderiza el layout con 3 asientos
+    render(
+      <SeatMapHalfmoon seats={asientos} zones={zonas} selectedSeatId={null} onSeatClick={vi.fn()} />,
+    )
+
+    // Then: hay un botón por cada asiento recibido
+    expect(screen.getAllByRole('button')).toHaveLength(asientos.length)
+  })
+
+  it('marca como seleccionado el asiento cuyo id coincide con selectedSeatId', () => {
+    // Given: sea-003 es el asiento seleccionado
+    render(
+      <SeatMapHalfmoon seats={asientos} zones={zonas} selectedSeatId="sea-003" onSeatClick={vi.fn()} />,
+    )
+
+    // Then: sólo ese botón queda marcado como pressed
+    expect(
+      screen.getByRole('button', { name: 'Fila 2, columna 1' }),
+    ).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('notifica el seatId al hacer click en un asiento available', async () => {
+    // Given: el layout con asientos disponibles
+    const usuario = userEvent.setup()
+    const onSeatClick = vi.fn()
+    render(
+      <SeatMapHalfmoon
+        seats={asientos}
+        zones={zonas}
+        selectedSeatId={null}
+        onSeatClick={onSeatClick}
+      />,
+    )
+
+    // When: el usuario elige el primer asiento
+    await usuario.click(screen.getByRole('button', { name: 'Fila 1, columna 1' }))
+
+    // Then: se notifica el seatId correspondiente
+    expect(onSeatClick).toHaveBeenCalledWith('sea-001')
+  })
+
+  it('no permite clicar el asiento occupied', () => {
+    // Given: el layout con un asiento ocupado
+    render(
+      <SeatMapHalfmoon seats={asientos} zones={zonas} selectedSeatId={null} onSeatClick={vi.fn()} />,
+    )
+
+    // Then: el botón de ese asiento está deshabilitado
+    expect(
+      screen.getByRole('button', { name: 'Fila 1, columna 2 — ocupado' }),
+    ).toBeDisabled()
+  })
+})

@@ -1,0 +1,112 @@
+.seat {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+}
+
+.seatAvailable {
+  background-color: var(--color-aurora-green);
+  cursor: pointer;
+}
+
+.seatOccupied {
+  background-color: var(--color-bg-lighter);
+  cursor: not-allowed;
+}
+
+.seatSelected {
+  background-color: var(--color-aurora-orange);
+  cursor: pointer;
+}
+
+.seat:focus-visible {
+  outline: 2px solid var(--color-frost-2);
+  outline-offset: 2px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-snow-1);
+  font-size: 0.85rem;
+}
+
+.legendDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.stageLabelText {
+  color: var(--color-snow-1);
+  text-align: center;
+  margin: 0 0 var(--space-4);
+  font-size: 0.85rem;
+}
+
+.flat,
+.halfmoon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.flatRow,
+.halfmoonRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.arenaSvg {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  display: block;
+}
+
+.stageCircle {
+  fill: var(--color-bg-light);
+}
+
+.stageLabel {
+  fill: var(--color-snow-1);
+  font-size: 12px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.svgSeat {
+  cursor: pointer;
+}
+
+.svgSeatAvailable {
+  fill: var(--color-aurora-green);
+}
+
+.svgSeatOccupied {
+  fill: var(--color-bg-lighter);
+  cursor: not-allowed;
+}
+
+.svgSeatSelected {
+  fill: var(--color-aurora-orange);
+}
+
+.svgSeat:focus-visible {
+  outline: 2px solid var(--color-frost-2);
+  outline-offset: 2px;
+}
