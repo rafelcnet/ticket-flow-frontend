@@ -1,33 +1,23 @@
-import { EventsResponseSchema, type Event } from '../schemas/events.schema'
+import {
+  PaginatedEventsResponseSchema,
+  type PaginatedEventsResponse,
+} from '../schemas/events.schema'
 import { httpClient } from '../http/http.client'
 
 /**
- * Caché en memoria del catálogo completo (SpecPurchase 6) — vive aquí, no
- * en la slice `purchase` (`selectedEvent` es un evento, no el catálogo).
- * Único valor, sin clave: `GET /events` no acepta parámetros.
+ * `GET /events/paginated` (FIX-1) — catálogo de eventos paginado, 6 por
+ * página. Reemplaza el listado completo + caché en memoria de SpecPurchase
+ * 6: cada página es una petición distinta con sus propios `page`/`limit`,
+ * así que "cachear todo el catálogo en un único valor" ya no aplica — misma
+ * decisión que ya tiene `/bookings` (sin caché, siempre se repite la
+ * petición al cambiar de página o al volver a la pantalla).
  */
-let cachedEvents: Event[] | null = null
-
-/**
- * `GET /events` (SpecHttp 7.5) — listado completo, sin paginación.
- * La primera llamada de la sesión pide red; las siguientes devuelven la
- * caché en memoria mientras siga vigente (SpecPurchase 6).
- */
-export const getEvents = async (): Promise<Event[]> => {
-  if (cachedEvents) {
-    return cachedEvents
-  }
-  const response = await httpClient.get<{ data: unknown }>('/events')
-  cachedEvents = EventsResponseSchema.parse(response).data
-  return cachedEvents
-}
-
-/**
- * Invalida la caché del catálogo (SpecPurchase 6: `LOGOUT`/`SESSION_EXPIRED`
- * de la slice `auth`). `services/` no puede escuchar la slice directamente
- * (regla de dependencia de SpecProject 1) — quien despacha esas
- * transiciones llama a esta función explícitamente.
- */
-export const clearEventsCache = (): void => {
-  cachedEvents = null
+export const getPaginatedEvents = async (
+  page: number,
+  limit: number,
+): Promise<PaginatedEventsResponse> => {
+  const response = await httpClient.get<PaginatedEventsResponse>('/events/paginated', {
+    query: { page, limit },
+  })
+  return PaginatedEventsResponseSchema.parse(response)
 }

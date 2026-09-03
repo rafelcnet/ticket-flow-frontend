@@ -11,9 +11,9 @@ import {
   parseLimitFromSearchParams,
   parsePageFromSearchParams,
 } from './bookings-query.utils'
+import { PaginationBar } from '../../components/tables/PaginationBar'
 import { BookingsFilterBar } from './BookingsFilterBar'
 import { BookingsTable } from './BookingsTable'
-import { PaginationBar } from './PaginationBar'
 import { CancelBookingModal } from './CancelBookingModal'
 import styles from './BookingsPage.module.css'
 
