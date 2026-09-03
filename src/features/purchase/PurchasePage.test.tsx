@@ -1,13 +1,18 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../../state/auth/auth.context'
 import { getEvents } from '../../services/events.service'
 import { getSeatMap } from '../../services/seats.service'
+import { processPayment } from '../../services/payment.service'
+import { createBooking } from '../../services/bookings.service'
 import { PurchasePage } from './PurchasePage'
 
 vi.mock('../../services/events.service')
 vi.mock('../../services/seats.service')
+vi.mock('../../services/payment.service')
+vi.mock('../../services/bookings.service')
 
 const eventos = [
   {
@@ -30,10 +35,40 @@ const seatMapArenaResponse = {
   seats: [{ seatId: 'sea-001', row: 1, col: 1, zone: 'zon-001', status: 'available' as const }],
 }
 
+const respuestaPagoAprobado = {
+  transactionId: 'txn-583921',
+  status: 'approved' as const,
+  message: 'Payment approved. You will receive a confirmation email.',
+  processedAt: '2026-07-04T15:30:00.000Z',
+}
+
+const reservaCreada = {
+  id: 'TF-583921',
+  status: 'confirmed' as const,
+  total: 158,
+  currency: 'USD' as const,
+  contactEmail: 'sofia.hernandez@ticketflow.com',
+  paymentMethod: 'card' as const,
+  transactionId: 'txn-583921',
+  createdAt: '2026-07-04 15:31:00',
+  cancelledAt: null,
+  eventId: 'evt-001',
+  eventName: 'Bad Liebre',
+  eventDate: '2025-02-15',
+  eventTime: '21:00',
+  location: 'Ciudad de México, México',
+  seatId: 'sea-001',
+  row: 1,
+  col: 1,
+  zone: 'VIP',
+}
+
 const renderPurchasePage = () =>
   render(
     <AuthProvider>
-      <PurchasePage />
+      <MemoryRouter initialEntries={['/buy']}>
+        <PurchasePage />
+      </MemoryRouter>
     </AuthProvider>,
   )
 
@@ -42,6 +77,8 @@ describe('PurchasePage', () => {
     vi.resetAllMocks()
     vi.mocked(getEvents).mockResolvedValue(eventos)
     vi.mocked(getSeatMap).mockResolvedValue(seatMapArenaResponse)
+    vi.mocked(processPayment).mockResolvedValue(respuestaPagoAprobado)
+    vi.mocked(createBooking).mockResolvedValue(reservaCreada)
   })
 
   it('muestra el header del stepper y el Paso 1 al entrar a /buy', async () => {
@@ -54,8 +91,8 @@ describe('PurchasePage', () => {
     expect(await screen.findByText('Bad Liebre')).toBeInTheDocument()
   })
 
-  it('recorre el Paso 1, el Paso 2 y el Paso 3, hasta el marcador de posición del Paso 4', async () => {
-    // Given: el catálogo de eventos y el mapa de asientos están disponibles
+  it('recorre los 5 pasos completos, del catálogo de eventos a la confirmación de la compra', async () => {
+    // Given: el catálogo de eventos, el mapa de asientos, el pago y la reserva están disponibles
     const usuario = userEvent.setup()
     renderPurchasePage()
     const card = await screen.findByRole('button', { name: /Bad Liebre/ })
@@ -78,12 +115,23 @@ describe('PurchasePage', () => {
     expect(getSeatMap).toHaveBeenCalledWith('evt-001')
     const asiento = await screen.findByRole('button', { name: 'Fila 1, columna 1' })
 
-    // When: elige el asiento disponible y avanza
+    // When: elige el asiento disponible y avanza al Paso 4
     await usuario.click(asiento)
     await usuario.click(screen.getByRole('button', { name: 'Next' }))
 
-    // Then: llega al marcador de posición del Paso 4, todavía sin implementar
-    expect(await screen.findByText('Próximamente disponible.')).toBeInTheDocument()
+    // Then: ve el resumen de pago con el asiento ya resuelto
+    expect(await screen.findByText('Precio base: $150.00')).toBeInTheDocument()
+
+    // When: completa el formulario de tarjeta y paga
+    await usuario.type(screen.getByLabelText('Card number'), '4111111111111111')
+    await usuario.type(screen.getByLabelText('Expiration date'), '1228')
+    await usuario.type(screen.getByLabelText('CVV'), '123')
+    await usuario.type(screen.getByLabelText('Cardholder name'), 'Sofía Hernández')
+    await usuario.click(screen.getByRole('button', { name: 'Pay $158.00' }))
+
+    // Then: llega al Paso 5 con la reserva confirmada (Context.md 5.4 Paso 5)
+    expect(await screen.findByText('¡Reservación confirmada!')).toBeInTheDocument()
+    expect(screen.getByText('TF-583921')).toBeInTheDocument()
   })
 
   it('conserva el evento y los datos de contacto al volver del Paso 2 al Paso 1', async () => {
