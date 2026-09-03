@@ -104,6 +104,68 @@ describe('purchaseReducer', () => {
     expect(result.contactDetails).toEqual(datosDeContacto)
   })
 
+  it('SELECT_SEAT guarda el asiento ya resuelto (zona/precio) y avanza al Paso 4 (SpecPurchase 2.1/4.3)', () => {
+    // Given: el usuario avanzó hasta el Paso 3
+    let estado = purchaseReducer(initialPurchaseState, {
+      type: 'SELECT_EVENT',
+      payload: { event: evento },
+    })
+    estado = purchaseReducer(estado, {
+      type: 'CONFIRM_DETAILS',
+      payload: { contactDetails: datosDeContacto },
+    })
+
+    // When: se despacha SELECT_SEAT con la zona ya resuelta
+    const asientoResuelto = {
+      seatId: 'sea-002',
+      row: 1,
+      col: 2,
+      zoneName: 'VIP',
+      zonePrice: 150,
+    }
+    const result = purchaseReducer(estado, {
+      type: 'SELECT_SEAT',
+      payload: { seat: asientoResuelto },
+    })
+
+    // Then: el asiento queda guardado y el paso avanza a Payment
+    expect(result.selectedSeat).toEqual(asientoResuelto)
+    expect(result.currentStep).toBe('step-4-payment')
+    // Y los datos de los pasos anteriores se conservan
+    expect(result.selectedEvent).toEqual(evento)
+    expect(result.contactDetails).toEqual(datosDeContacto)
+  })
+
+  it('GO_BACK desde el Paso 4 vuelve al Paso 3, conservando el asiento elegido', () => {
+    // Given: el usuario avanzó hasta el Paso 4
+    let estado = purchaseReducer(initialPurchaseState, {
+      type: 'SELECT_EVENT',
+      payload: { event: evento },
+    })
+    estado = purchaseReducer(estado, {
+      type: 'CONFIRM_DETAILS',
+      payload: { contactDetails: datosDeContacto },
+    })
+    const asientoResuelto = {
+      seatId: 'sea-002',
+      row: 1,
+      col: 2,
+      zoneName: 'VIP',
+      zonePrice: 150,
+    }
+    estado = purchaseReducer(estado, {
+      type: 'SELECT_SEAT',
+      payload: { seat: asientoResuelto },
+    })
+
+    // When: se despacha GO_BACK
+    const result = purchaseReducer(estado, { type: 'GO_BACK' })
+
+    // Then: vuelve al Paso 3 sin perder el asiento ya elegido
+    expect(result.currentStep).toBe('step-3-select-seat')
+    expect(result.selectedSeat).toEqual(asientoResuelto)
+  })
+
   it('GO_BACK en el Paso 1 no tiene ningún efecto — no hay paso anterior', () => {
     // Given: el usuario está en el primer paso
     // When: se despacha GO_BACK de todas formas
