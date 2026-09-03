@@ -1,0 +1,22 @@
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-8);
+  color: var(--color-snow-1);
+}
+
+.empty button {
+  padding: var(--space-3) var(--space-6);
+  background-color: var(--color-frost-3);
+  border: none;
+  border-radius: var(--radius-control);
+  color: var(--color-bg-dark);
+  font-weight: var(--font-weight-heading);
+  cursor: pointer;
+}
+
+.empty button:hover {
+  background-color: var(--color-frost-4);
+}
