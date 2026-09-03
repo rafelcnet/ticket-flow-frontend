@@ -184,6 +184,18 @@ describe('seatMapReducer', () => {
     expect(result).toBe(estadoCargando)
   })
 
+  it('SEAT_CONFLICT_DETECTED limpia la selección y vuelve a loading para revalidar (SpecSeatMap 4.5, TF-7)', () => {
+    // Given: un asiento seleccionado que resultó ocupado al crear la reserva (409 SEAT_UNAVAILABLE)
+    const estadoConSeleccion: SeatMapState = { ...estadoCargado, selectedSeatId: 'sea-001' }
+
+    // When: llega el conflicto desde el Paso 4 de Payment
+    const result = seatMapReducer(estadoConSeleccion, { type: 'SEAT_CONFLICT_DETECTED' })
+
+    // Then: se limpia la selección obsoleta y vuelve a loading (dispara GET /events/:id/seats de nuevo)
+    expect(result.selectedSeatId).toBeNull()
+    expect(result.status).toBe('loading')
+  })
+
   it('ignora una acción desconocida y devuelve el mismo estado', () => {
     // Given: un estado cualquiera
     const accionDesconocida = { type: 'ACCION_INEXISTENTE' } as unknown as SeatMapAction
