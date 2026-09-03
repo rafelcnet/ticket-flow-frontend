@@ -1,32 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { httpClient } from '../http/http.client'
-import { getEvents } from './events.service'
+import { clearEventsCache, getEvents } from './events.service'
 
 vi.mock('../http/http.client')
+
+const eventoEjemplo = {
+  id: 'evt-001',
+  venueId: 'ven-001',
+  name: 'Bad Liebre',
+  date: '2025-02-15',
+  time: '21:00',
+  location: 'Ciudad de México, México',
+  imageUrl: 'https://raw.githubusercontent.com/.../bad-liebre.png',
+  basePrice: 150,
+  currency: 'USD',
+}
 
 describe('events.service', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    // La caché es un valor de módulo (SpecPurchase 6) — se limpia entre
+    // tests para que no se filtre de un caso a otro.
+    clearEventsCache()
   })
 
   describe('getEvents', () => {
     it('devuelve el listado completo de eventos (200)', async () => {
       // Given: el backend responde con la lista de eventos (SpecHttp 7.5)
-      vi.mocked(httpClient.get).mockResolvedValue({
-        data: [
-          {
-            id: 'evt-001',
-            venueId: 'ven-001',
-            name: 'Bad Liebre',
-            date: '2025-02-15',
-            time: '21:00',
-            location: 'Ciudad de México, México',
-            imageUrl: 'https://raw.githubusercontent.com/.../bad-liebre.png',
-            basePrice: 150,
-            currency: 'USD',
-          },
-        ],
-      })
+      vi.mocked(httpClient.get).mockResolvedValue({ data: [eventoEjemplo] })
 
       // When: se piden los eventos disponibles
       const events = await getEvents()
@@ -74,6 +75,54 @@ describe('events.service', () => {
 
       // Then: la validación de Zod detiene el flujo
       await expect(call).rejects.toThrow()
+    })
+
+    it('no repite la llamada de red en una segunda petición dentro de la misma sesión (SpecPurchase 6)', async () => {
+      // Given: ya se pidió el catálogo una vez
+      vi.mocked(httpClient.get).mockResolvedValue({ data: [eventoEjemplo] })
+      await getEvents()
+
+      // When: se vuelve a pedir el catálogo
+      const events = await getEvents()
+
+      // Then: la segunda llamada devuelve la caché, sin golpear la red de nuevo
+      expect(httpClient.get).toHaveBeenCalledOnce()
+      expect(events).toHaveLength(1)
+    })
+
+    it('no reutiliza una respuesta fallida como si fuera caché', async () => {
+      // Given: la primera petición falla
+      vi.mocked(httpClient.get).mockRejectedValueOnce(new Error('network error'))
+      await expect(getEvents()).rejects.toThrow('network error')
+
+      // When: se reintenta
+      vi.mocked(httpClient.get).mockResolvedValueOnce({ data: [eventoEjemplo] })
+      const events = await getEvents()
+
+      // Then: el reintento sí llega a la red y obtiene el catálogo
+      expect(httpClient.get).toHaveBeenCalledTimes(2)
+      expect(events).toHaveLength(1)
+    })
+  })
+
+  describe('clearEventsCache', () => {
+    it('fuerza una nueva llamada de red tras invalidar la caché (LOGOUT/SESSION_EXPIRED, SpecPurchase 6)', async () => {
+      // Given: el catálogo ya está en caché
+      vi.mocked(httpClient.get).mockResolvedValue({ data: [eventoEjemplo] })
+      await getEvents()
+
+      // When: se invalida la caché y se vuelve a pedir el catálogo
+      clearEventsCache()
+      await getEvents()
+
+      // Then: la segunda petición sí golpea la red
+      expect(httpClient.get).toHaveBeenCalledTimes(2)
+    })
+
+    it('no falla si se llama sin que exista ninguna caché previa', () => {
+      // Given: nunca se pidió el catálogo
+      // When / Then: limpiar la caché no lanza ningún error
+      expect(() => clearEventsCache()).not.toThrow()
     })
   })
 })
