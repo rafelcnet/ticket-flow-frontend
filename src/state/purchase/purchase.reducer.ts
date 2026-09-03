@@ -4,9 +4,8 @@ import type { ContactDetails } from '../../features/purchase/your-details/contac
 
 /**
  * Pasos del stepper de compra (SpecPurchase 2, Context.md 5.4/6.2) —
- * nombres literales del Spec, no abreviados. TF-5 sólo implementa las
- * transiciones hacia/desde `step-1` y `step-2`; el resto de la FSM
- * (selección de asiento, pago, confirmación) llega con sus tickets.
+ * nombres literales del Spec, no abreviados. TF-6 añade la transición
+ * `SELECT_SEAT` (step-3 → step-4); pago y confirmación llegan con TF-7.
  */
 export type PurchaseStep =
   | 'step-1-select-event'
@@ -52,14 +51,14 @@ const PREVIOUS_STEP: Partial<Record<PurchaseStep, PurchaseStep>> = {
 }
 
 /**
- * FSM del stepper (SpecPurchase 2.1) — sólo las transiciones de TF-5.
- * `SELECT_SEAT`, `SUBMIT_PAYMENT` y el resto llegan con TF-6/TF-7, cuando
- * sus Specs (`SpecSeatMap.md`) formen parte del contexto de arquitectura.
+ * FSM del stepper (SpecPurchase 2.1) — transiciones de TF-5 y TF-6.
+ * `SUBMIT_PAYMENT` y el resto llegan con TF-7.
  */
 export type PurchaseAction =
   | { type: 'SELECT_EVENT'; payload: { event: Event } }
   | { type: 'GO_BACK' }
   | { type: 'CONFIRM_DETAILS'; payload: { contactDetails: ContactDetails } }
+  | { type: 'SELECT_SEAT'; payload: { seat: ResolvedSeat } }
 
 export const purchaseReducer = (
   state: PurchaseState,
@@ -77,6 +76,12 @@ export const purchaseReducer = (
         ...state,
         contactDetails: action.payload.contactDetails,
         currentStep: 'step-3-select-seat',
+      }
+    case 'SELECT_SEAT':
+      return {
+        ...state,
+        selectedSeat: action.payload.seat,
+        currentStep: 'step-4-payment',
       }
     case 'GO_BACK':
       return {
